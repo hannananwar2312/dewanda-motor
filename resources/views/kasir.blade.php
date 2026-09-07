@@ -134,7 +134,7 @@ $cats = [
             <div class="flex items-center justify-between border-b border-gray-100 p-5">
                 <div>
                     <h3 class="text-lg font-bold">Detail order</h3>
-                    <p class="text-xs text-gray-400">#{{ $invoice }}</p>
+                    <p class="text-xs text-gray-400">#<span x-text="invoice"></span></p>
                 </div>
                 <div class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-400">
                     <i data-lucide="clipboard-list" class="h-4 w-4"></i>
@@ -220,7 +220,7 @@ $cats = [
                     </div>
                 </div>
 
-                <button x-on:click="checkout()" :disabled="!bisaBayar()"
+                    <button x-on:click="checkout()" :disabled="!bisaBayar() || saving"
                     class="mt-4 w-full rounded-xl bg-red-600 py-3 text-sm font-semibold text-white transition hover:bg-red-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400">
                     Selesai & Cetak Struk
                 </button>
@@ -246,7 +246,7 @@ $cats = [
                     <p class="text-[11px] text-gray-500">Jl.Tipar, Kec. rawalo, Kabupaten Banyumas, Purwokerto</p>
                     <p class="text-[11px] text-gray-500">Telp. 812-2550-0632</p>
                     <div class="my-2 border-t border-dashed border-gray-300"></div>
-                    <p class="text-[11px] text-gray-500">No : #{{ $invoice }}</p>
+                    <p class="text-[11px] text-gray-500">No : #<span x-text="invoice"></span></p>
                     <p class="text-[11px] text-gray-500" x-text="'Tgl : ' + tanggal"></p>
                     <p class="text-[11px] text-gray-500">Kasir : {{ $user }}</p>
                 </div>
@@ -313,6 +313,9 @@ $cats = [
             showReceipt: false,
             method: 'tunai',
             cashInput: 0,
+            saving: false,
+            invoice: '{{ $invoice }}',
+            csrf: '{{ csrf_token() }}',
             tanggal: new Date().toLocaleString('id-ID'),
 
             filtered() {
@@ -355,12 +358,39 @@ $cats = [
                 if (this.method === 'tunai') return (Number(this.cashInput) || 0) >= this.total;
                 return true;
             },
-            checkout() { if (this.bisaBayar()) this.showReceipt = true; },
+                        async checkout() {
+                if (!this.bisaBayar() || this.saving) return;
+                this.saving = true;
+                try {
+                    const res = await fetch('/kasir/simpan', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': this.csrf,
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            payment_method: this.method === 'tunai' ? 'cash' : 'qris',
+                            cash_received: this.method === 'tunai' ? this.cashInput : null,
+                            items: this.cart.map(i => ({ id: i.id, qty: i.qty })),
+                        }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        alert(data.message || 'Gagal menyimpan transaksi.');
+                        this.saving = false;
+                        return;
+                    }
+                    this.invoice = data.invoice;
+                    this.tanggal = data.tanggal;
+                    this.showReceipt = true;
+                } catch (e) {
+                    alert('Terjadi kesalahan koneksi ke server.');
+                }
+                this.saving = false;
+            },
             newTrx() {
-                this.cart = [];
-                this.showReceipt = false;
-                this.method = 'tunai';
-                this.cashInput = 0;
+                window.location.reload();
             },
         }));
     });
