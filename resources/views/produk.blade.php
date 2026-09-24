@@ -389,29 +389,24 @@
 
                 </div>
 
+                <div>
+                    <label class="mb-1 block text-xs font-medium text-gray-500">
+                        Harga Modal / Beli (Rp)
+                    </label>
+                    <input
+                        type="text"
+                        inputmode="numeric"
+                        :value="formatRibuan(form.cost)"
+                        x-on:input="form.cost = angkaSaja($event.target.value)"
+                        placeholder="0"
+                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100">
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
-
                     <div>
-
                         <label class="mb-1 block text-xs font-medium text-gray-500">
-                            Stok
+                            Harga Jual (Rp)
                         </label>
-
-                        <input
-                            type="number"
-                            min="0"
-                            x-model.number="form.stock"
-                            placeholder="0"
-                            class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100">
-
-                    </div>
-
-                    <div>
-
-                        <label class="mb-1 block text-xs font-medium text-gray-500">
-                            Harga (Rp)
-                        </label>
-
                         <input
                             type="text"
                             inputmode="numeric"
@@ -419,9 +414,18 @@
                             x-on:input="form.price = angkaSaja($event.target.value)"
                             placeholder="0"
                             class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100">
-
                     </div>
-
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-500">
+                            Stok
+                        </label>
+                        <input
+                            type="number"
+                            min="0"
+                            x-model.number="form.stock"
+                            placeholder="0"
+                            class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100">
+                    </div>
                 </div>
 
                 <p
@@ -680,15 +684,7 @@
             // FORM PRODUK
             // =========================
 
-            form: {
-                sku: '',
-                name: '',
-                cat: 'oli',
-                stock: 0,
-                price: 0,
-                image: ''
-            },
-
+            form: { sku: '', name: '', cat: 'oli', stock: 0, price: 0, cost: 0, image: '' },
 
             // =========================
             // FORMAT
@@ -876,6 +872,7 @@
                     cat: 'oli',
                     stock: 0,
                     price: 0,
+                    cost: 0,
                     image: ''
                 };
 
@@ -896,14 +893,7 @@
 
                 this.editId = p.id;
 
-                this.form = {
-                    sku: p.sku,
-                    name: p.name,
-                    cat: p.cat,
-                    stock: p.stock,
-                    price: p.price,
-                    image: p.image || ''
-                };
+                this.form = { sku: p.sku, name: p.name, cat: p.cat, stock: p.stock, price: p.price, cost: p.cost || 0, image: p.image || '' };
 
                 this.showForm = true;
 
@@ -981,6 +971,9 @@
 
                                 price:
                                     Number(this.form.price) || 0,
+
+                                cost:
+                                    Number(this.form.cost) || 0,
 
                                 image:
                                     this.form.image || ''

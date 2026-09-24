@@ -102,7 +102,7 @@ class KasirController extends Controller
             $meta = $this->catMeta(optional($p->category)->name ?? 'Lainnya');
             return [
                 'id' => $p->id, 'name' => $p->name, 'sku' => $p->sku,
-                'price' => (int) $p->price, 'stock' => (int) $p->stock,
+                'price' => (int) $p->price, 'cost' => (int) $p->cost_price, 'stock' => (int) $p->stock,
                 'sold' => (int) ($p->sales_qty ?? 0),
                 'cat' => $meta['cat'], 'emoji' => $meta['emoji'], 'tint' => $meta['tint'],
                 'image' => $p->image,
@@ -264,7 +264,13 @@ class KasirController extends Controller
                     }
                     $sub = (int) $product->price * (int) $item['qty'];
                     $subtotal += $sub;
-                    $rincian[] = ['product' => $product, 'qty' => (int) $item['qty'], 'price' => (int) $product->price, 'subtotal' => $sub];
+                    $rincian[] = [
+                        'product'  => $product,
+                        'qty'      => (int) $item['qty'],
+                        'price'    => (int) $product->price,
+                        'cost'     => (int) $product->cost_price, // snapshot modal saat transaksi
+                        'subtotal' => $sub,
+                    ];
                 }
 
                 $discount = 0;
@@ -292,11 +298,12 @@ class KasirController extends Controller
                     'change_amount'  => $change,
                 ]);
 
-                foreach ($rincian as $r) {
+                    foreach ($rincian as $r) {
                     $sale->items()->create([
                         'product_id' => $r['product']->id,
                         'qty'        => $r['qty'],
                         'price'      => $r['price'],
+                        'cost_price' => $r['cost'], // simpan snapshot modal
                         'subtotal'   => $r['subtotal'],
                     ]);
                     $r['product']->decrement('stock', $r['qty']);
@@ -338,6 +345,7 @@ class KasirController extends Controller
             'cat'   => 'required|string',
             'stock' => 'required|integer|min:0',
             'price' => 'required|integer|min:0',
+            'cost'  => 'nullable|integer|min:0',
             'image' => 'nullable|string',
         ]);
 
@@ -346,6 +354,7 @@ class KasirController extends Controller
             'sku'         => $data['sku'],
             'name'        => $data['name'],
             'price'       => $data['price'],
+            'cost_price'  => $data['cost'] ?? 0,
             'stock'       => $data['stock'],
             'image'       => $data['image'] ?? null,
         ];
@@ -417,5 +426,46 @@ class KasirController extends Controller
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
+    }
+  
+    public function simpanModal(Request $request)
+    {
+        if (session('role') !== 'admin') {
+            return response()->json(['message' => 'Tidak diizinkan.'], 403);
+        }
+
+        $data = $request->validate([
+            'type'   => 'required|in:awal,tambahan',
+            'amount' => 'required|integer|min:1',
+            'date'   => 'required|date',
+            'note'   => 'nullable|string',
+        ]);
+
+        // Modal awal hanya boleh 1x
+        if ($data['type'] === 'awal' && \App\Models\Capital::where('type', 'awal')->exists()) {
+            return response()->json(['message' => 'Modal awal sudah pernah diisi.'], 422);
+        }
+
+        \App\Models\Capital::create([
+            'user_id' => session('user_id'),
+            'type'    => $data['type'],
+            'amount'  => $data['amount'],
+            'date'    => $data['date'],
+            'note'    => $data['note'] ?? null,
+        ]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function hapusModal(Request $request)
+    {
+        if (session('role') !== 'admin') {
+            return response()->json(['message' => 'Tidak diizinkan.'], 403);
+        }
+
+        $data = $request->validate(['id' => 'required|integer']);
+        \App\Models\Capital::where('id', $data['id'])->delete();
+
+        return response()->json(['ok' => true]);
     }
 }
