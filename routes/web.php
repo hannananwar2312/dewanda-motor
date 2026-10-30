@@ -19,3 +19,5 @@ Route::post('/produk/hapus',  [KasirController::class, 'hapusProduk'])->name('pr
 Route::post('/produk/beli', [KasirController::class, 'simpanPembelian'])->name('produk.beli');
 Route::post('/pembukuan/modal', [KasirController::class, 'simpanModal'])->name('pembukuan.modal');
 Route::post('/pembukuan/modal/hapus', [KasirController::class, 'hapusModal'])->name('pembukuan.modal.hapus');
+Route::post('/pembukuan/modal', [KasirController::class, 'simpanModal'])->name('pembukuan.modal');
+Route::post('/pembukuan/modal/hapus', [KasirController::class, 'hapusModal'])->name('pembukuan.modal.hapus');
