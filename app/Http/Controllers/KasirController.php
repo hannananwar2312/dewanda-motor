@@ -195,6 +195,10 @@ class KasirController extends Controller
             $ringkasan .= 'Semua stok produk masih dalam kondisi aman.';
         }
 
+        // Hasil analisis AI (Gemini) terakhir — diambil dari cache
+        $aiText = \Cache::get('ai_insight_text');
+        $aiTime = \Cache::get('ai_insight_time');
+
         return view('insight', compact(
             'terlaris',
             'menipis',
@@ -202,8 +206,74 @@ class KasirController extends Controller
             'totalTerjual',
             'totalOmzet',
             'nilaiStok',
-            'ringkasan'
+            'ringkasan',
+            'aiText',
+            'aiTime'
         ));
+    }
+
+    // ====== AI INSIGHT (Gemini) ======
+
+    // Ringkas data toko untuk dikirim ke AI
+    private function insightDataForAI(): array
+    {
+        $data = $this->productsWithSold()->map(fn ($p) => [
+            'name'  => $p->name,
+            'stock' => (int) $p->stock,
+            'sold'  => (int) ($p->sales_qty ?? 0),
+            'price' => (int) $p->price,
+        ]);
+
+        $terlaris = $data->sortByDesc('sold')->take(5)->values()
+            ->map(fn ($p) => ['nama' => $p['name'], 'terjual' => $p['sold']])->all();
+
+        $menipis = $data->filter(fn ($p) => $p['stock'] <= 8)
+            ->sortBy('stock')->values()
+            ->map(fn ($p) => ['nama' => $p['name'], 'sisa_stok' => $p['stock']])->all();
+
+        $belumLaku = $data->filter(fn ($p) => $p['sold'] == 0)->values()
+            ->map(fn ($p) => ['nama' => $p['name'], 'stok' => $p['stock']])->take(5)->all();
+
+        return [
+            'total_produk'         => $data->count(),
+            'total_unit_terjual'   => $data->sum('sold'),
+            'estimasi_omzet'       => $data->sum(fn ($p) => $p['price'] * $p['sold']),
+            'nilai_stok'           => $data->sum(fn ($p) => $p['price'] * $p['stock']),
+            'produk_terlaris'      => $terlaris,
+            'stok_menipis'         => $menipis,
+            'produk_belum_terjual' => $belumLaku,
+        ];
+    }
+
+    // Dipanggil tombol "Generate Analisis" (AJAX)
+    public function insightAi(Request $request)
+    {
+        if (!session('role')) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Sesi berakhir, silakan login ulang.'
+            ], 401);
+        }
+
+        $result = app(\App\Services\GeminiService::class)
+            ->generateInsight($this->insightDataForAI());
+
+        if ($result['ok']) {
+            $time = now()->format('d/m/Y H:i');
+            \Cache::put('ai_insight_text', $result['text'], now()->addDay());
+            \Cache::put('ai_insight_time', $time, now()->addDay());
+
+            return response()->json([
+                'ok'   => true,
+                'text' => $result['text'],
+                'time' => $time,
+            ]);
+        }
+
+        return response()->json([
+            'ok'    => false,
+            'error' => $result['error'] ?? 'Gagal memanggil AI.',
+        ], 200);
     }
 
     public function pembukuan()
@@ -387,8 +457,8 @@ class KasirController extends Controller
                 }
 
                 $discount = 0;
-                $tax      = (int) round(($subtotal - $discount) * 0.11);
-                $total    = $subtotal - $discount + $tax;
+                $tax      = 0;
+                $total    = $subtotal - $discount;
 
                 $cash = $data['payment_method'] === 'cash'
                     ? (int) ($data['cash_received'] ?? 0)

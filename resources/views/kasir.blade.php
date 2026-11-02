@@ -30,40 +30,56 @@ $cats = [
 
 <div x-data="pos" class="flex h-screen flex-col overflow-hidden bg-gray-50">
 
-    <header class="flex h-16 shrink-0 items-center gap-4 border-b border-gray-200 bg-white px-4">
-        <div class="flex w-52 items-center gap-2">
+    <header class="flex h-16 shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4">
+        <button x-on:click="sidebarOpen = true" class="text-gray-500 hover:text-gray-700 lg:hidden">
+            <i data-lucide="menu" class="h-6 w-6"></i>
+        </button>
+        <div class="flex items-center gap-2">
             <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-red-600">
                 <i data-lucide="bike" class="h-5 w-5 text-white"></i>
             </div>
-            <span class="text-lg font-bold">Dewanda Motor</span>
+            <span class="hidden text-lg font-bold sm:block">Dewanda Motor</span>
         </div>
-        <button class="hidden text-gray-400 hover:text-gray-600 md:block">
-            <i data-lucide="panel-left" class="h-5 w-5"></i>
-        </button>
         <div class="relative mx-auto w-full max-w-2xl">
             <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"></i>
             <input x-model="query" placeholder="Cari produk atau SKU…"
-                class="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-11 pr-11 text-sm outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100">
-            <i data-lucide="sliders-horizontal" class="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"></i>
+                class="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-11 pr-4 text-sm outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100">
         </div>
     </header>
 
-    <div class="flex flex-1 overflow-hidden">
-        <aside class="flex w-52 shrink-0 flex-col justify-between border-r border-gray-200 bg-white p-3">
-            <nav class="space-y-1">
-                <a href="/kasir" class="flex w-full items-center gap-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
-                    <i data-lucide="shopping-cart" class="h-5 w-5"></i> Kasir
-                </a>
-                <a href="/produk" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
-                    <i data-lucide="boxes" class="h-5 w-5"></i> Produk & Stok
-                </a>
-                <a href="/insight" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
-                    <i data-lucide="sparkles" class="h-5 w-5"></i> AI Insight
-                </a>
-                <a href="/pembukuan" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
-                    <i data-lucide="book-open" class="h-5 w-5"></i> Pembukuan
-                </a>
-            </nav>
+    <div class="relative flex flex-1 overflow-hidden">
+
+        {{-- Backdrop (mobile) --}}
+        <div x-show="sidebarOpen || cartOpen" x-cloak
+            x-on:click="sidebarOpen = false; cartOpen = false"
+            class="fixed inset-0 z-30 bg-black/40 lg:hidden"></div>
+
+        {{-- Sidebar --}}
+        <aside
+            class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col justify-between border-r border-gray-200 bg-white p-3 transition-transform duration-300 lg:static lg:z-auto lg:w-52 lg:translate-x-0 lg:transition-none"
+            :class="sidebarOpen && 'translate-x-0'">
+            <div>
+                <div class="mb-3 flex items-center justify-between lg:hidden">
+                    <span class="px-2 text-sm font-bold text-gray-700">Menu</span>
+                    <button x-on:click="sidebarOpen = false" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="h-5 w-5"></i>
+                    </button>
+                </div>
+                <nav class="space-y-1">
+                    <a href="/kasir" class="flex w-full items-center gap-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
+                        <i data-lucide="shopping-cart" class="h-5 w-5"></i> Kasir
+                    </a>
+                    <a href="/produk" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <i data-lucide="boxes" class="h-5 w-5"></i> Produk & Stok
+                    </a>
+                    <a href="/insight" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <i data-lucide="sparkles" class="h-5 w-5"></i> AI Insight
+                    </a>
+                    <a href="/pembukuan" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <i data-lucide="book-open" class="h-5 w-5"></i> Pembukuan
+                    </a>
+                </nav>
+            </div>
 
             <div class="flex items-center gap-3 px-2 py-2">
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-800 text-sm font-bold text-white">
@@ -78,8 +94,9 @@ $cats = [
             </div>
         </aside>
 
+        {{-- Produk --}}
         <main class="relative flex-1 overflow-y-auto">
-            <div class="p-6 pb-28">
+            <div class="p-4 pb-44 lg:p-6 lg:pb-28">
                 <div class="mb-5 flex items-center gap-2">
                     <i data-lucide="clipboard-list" class="h-6 w-6"></i>
                     <h2 class="text-xl font-bold">Produk</h2>
@@ -116,11 +133,11 @@ $cats = [
                 </div>
             </div>
 
-            <div class="pointer-events-none sticky bottom-4 flex justify-center">
-                <div class="pointer-events-auto flex gap-3 rounded-2xl bg-white/90 p-3 shadow-lg ring-1 ring-gray-200 backdrop-blur">
+            <div class="pointer-events-none sticky bottom-1 flex justify-center px-2 lg:bottom-4">
+                <div class="pointer-events-auto flex max-w-full gap-3 overflow-x-auto rounded-2xl bg-white/90 p-3 shadow-lg ring-1 ring-gray-200 backdrop-blur">
                     @foreach ($cats as $c)
                         <button x-on:click="category = '{{ $c['id'] }}'"
-                            class="flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-xl border text-xs font-semibold transition"
+                            class="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border text-[11px] font-semibold transition md:h-20 md:w-20 md:gap-1.5 md:text-xs"
                             :class="category === '{{ $c['id'] }}' ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'">
                             <i data-lucide="{{ $c['icon'] }}" class="h-5 w-5"></i>
                             <span class="leading-tight text-center">{{ $c['label'] }}</span>
@@ -130,13 +147,19 @@ $cats = [
             </div>
         </main>
 
-        <aside class="flex w-80 shrink-0 flex-col border-l border-gray-200 bg-white">
+        {{-- Panel keranjang --}}
+        <aside
+            class="fixed inset-y-0 right-0 z-40 flex w-full max-w-sm translate-x-full flex-col border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none lg:transition-none"
+            :class="cartOpen && 'translate-x-0'">
             <div class="flex items-center justify-between border-b border-gray-100 p-5">
                 <div>
                     <h3 class="text-lg font-bold">Detail order</h3>
                     <p class="text-xs text-gray-400">#<span x-text="invoice"></span></p>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-400">
+                <button x-on:click="cartOpen = false" class="text-gray-400 hover:text-gray-600 lg:hidden">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+                <div class="hidden h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-400 lg:flex">
                     <i data-lucide="clipboard-list" class="h-4 w-4"></i>
                 </div>
             </div>
@@ -177,8 +200,7 @@ $cats = [
                 <div class="space-y-2 text-sm">
                     <div class="flex justify-between text-gray-500"><span>SubTotal</span><span class="font-medium text-gray-700" x-text="rupiah(subtotal)"></span></div>
                     <div class="flex justify-between text-gray-500"><span>Diskon</span><span class="font-medium text-gray-700" x-text="rupiah(diskon)"></span></div>
-                    <div class="flex justify-between text-gray-500"><span>Pajak (PPN 11%)</span><span class="font-medium text-gray-700" x-text="rupiah(pajak)"></span></div>
-                </div>
+                    
                 <div class="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
                     <span class="text-sm font-semibold">Total Pembayaran</span>
                     <span class="text-lg font-bold text-red-600" x-text="rupiah(total)"></span>
@@ -220,12 +242,27 @@ $cats = [
                     </div>
                 </div>
 
-                    <button x-on:click="checkout()" :disabled="!bisaBayar() || saving"
+                <button x-on:click="checkout()" :disabled="!bisaBayar() || saving"
                     class="mt-4 w-full rounded-xl bg-red-600 py-3 text-sm font-semibold text-white transition hover:bg-red-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400">
                     Selesai & Cetak Struk
                 </button>
             </div>
         </aside>
+    </div>
+
+    {{-- Bar keranjang bawah (HP/tablet kecil) --}}
+    <div class="flex items-center justify-between gap-3 border-t border-gray-200 bg-white p-3 lg:hidden">
+        <div>
+            <p class="text-xs text-gray-400">Total</p>
+            <p class="text-base font-bold text-red-600" x-text="rupiah(total)"></p>
+        </div>
+        <button x-on:click="cartOpen = true"
+            class="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white">
+            <i data-lucide="shopping-cart" class="h-4 w-4"></i>
+            Keranjang
+            <span x-show="cart.length > 0" class="rounded-full bg-white/25 px-2 py-0.5 text-xs"
+                x-text="cart.reduce((s, i) => s + i.qty, 0)"></span>
+        </button>
     </div>
 
     <div x-show="showReceipt" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -266,7 +303,6 @@ $cats = [
                 <div class="space-y-1 py-2 text-[12px]">
                     <div class="flex justify-between text-gray-600"><span>SubTotal</span><span x-text="rupiah(subtotal)"></span></div>
                     <div class="flex justify-between text-gray-600"><span>Diskon</span><span x-text="rupiah(diskon)"></span></div>
-                    <div class="flex justify-between text-gray-600"><span>Pajak (PPN 11%)</span><span x-text="rupiah(pajak)"></span></div>
                     <div class="flex justify-between border-t border-dashed border-gray-300 pt-1 text-sm font-bold"><span>TOTAL</span><span x-text="rupiah(total)"></span></div>
                 </div>
 
@@ -314,6 +350,8 @@ $cats = [
             method: 'tunai',
             cashInput: 0,
             saving: false,
+            sidebarOpen: false,
+            cartOpen: false,
             invoice: '{{ $invoice }}',
             csrf: '{{ csrf_token() }}',
             tanggal: new Date().toLocaleString('id-ID'),
@@ -340,8 +378,8 @@ $cats = [
             },
             get subtotal() { return this.cart.reduce((s, i) => s + i.price * i.qty, 0); },
             get diskon()   { return 0; },
-            get pajak()    { return Math.round((this.subtotal - this.diskon) * 0.11); },
-            get total()    { return this.subtotal - this.diskon + this.pajak; },
+            get pajak()    { return 0; },
+            get total()    { return this.subtotal - this.diskon; },
             rupiah(n)      { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); },
             formatRibuan(n){ return Number(n || 0).toLocaleString('id-ID'); },
             angkaSaja(s)   { return Number(String(s).replace(/\D/g, '')) || 0; },
@@ -358,7 +396,7 @@ $cats = [
                 if (this.method === 'tunai') return (Number(this.cashInput) || 0) >= this.total;
                 return true;
             },
-                        async checkout() {
+            async checkout() {
                 if (!this.bisaBayar() || this.saving) return;
                 this.saving = true;
                 try {
@@ -383,6 +421,7 @@ $cats = [
                     }
                     this.invoice = data.invoice;
                     this.tanggal = data.tanggal;
+                    this.cartOpen = false;
                     this.showReceipt = true;
                 } catch (e) {
                     alert('Terjadi kesalahan koneksi ke server.');
