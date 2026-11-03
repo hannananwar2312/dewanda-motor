@@ -209,6 +209,11 @@
         </main>
     </div>
 
+    {{-- Toast scan --}}
+    <div x-show="toast" x-cloak
+        class="pointer-events-none fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-lg"
+        x-text="toast"></div>
+
     {{-- ===== MODAL TAMBAH / UPDATE PRODUK ===== --}}
     <div x-show="showForm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
@@ -385,6 +390,49 @@
 
             beli: { id: null, name: '', stock: 0, qty: 1, buy_price: 0, supplier: '' },
             form: { sku: '', name: '', cat: 'oli', stock: 0, price: 0, cost: 0, image: '' },
+
+            toast: '',
+            _scanBuf: '',
+            _scanTime: 0,
+
+            init() {
+                window.addEventListener('keydown', (e) => {
+                    // jangan ganggu kalau modal lagi kebuka (biar ngetik manual aman)
+                    if (this.showForm || this.showBeli || this.showDelete) return;
+                    const now = Date.now();
+                    if (now - this._scanTime > 120) this._scanBuf = '';
+                    this._scanTime = now;
+                    if (e.key === 'Enter') {
+                        const code = this._scanBuf.trim();
+                        this._scanBuf = '';
+                        if (code.length >= 3) {
+                            e.preventDefault();
+                            this.scanProduk(code);
+                        }
+                        return;
+                    }
+                    if (e.key.length === 1) this._scanBuf += e.key;
+                });
+            },
+            scanProduk(code) {
+                const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const key = norm(code);
+                const existing = this.rows.find(p => norm(p.sku) === key);
+                this.query = '';
+                if (existing) {
+                    this.openEdit(existing);
+                    this.showToast('Produk sudah terdaftar — membuka Update');
+                } else {
+                    this.openAdd();
+                    this.form.sku = code;
+                    this.showToast('Kode ter-scan: ' + code);
+                }
+            },
+            showToast(msg) {
+                this.toast = msg;
+                clearTimeout(this._toastT);
+                this._toastT = setTimeout(() => this.toast = '', 2000);
+            },
 
             // ===== FORMAT =====
             rupiah(n)       { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); },
