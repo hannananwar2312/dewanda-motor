@@ -11,23 +11,43 @@ use Illuminate\Support\Facades\Hash;
 
 class KasirController extends Controller
 {
-    // Map nama kategori (dari DB) -> kode singkat + emoji + warna untuk tampilan
+    // ===== Kategori & Supplier (dinamis dari DB) =====
+    private $catCache = null;
+
+    private function catMap(): array
+    {
+        if ($this->catCache === null) {
+            $this->catCache = \App\Models\Category::all()->keyBy('name')->map(fn ($c) => [
+                'cat'   => $c->code ?: \Illuminate\Support\Str::slug($c->name),
+                'emoji' => $c->emoji ?: '📦',
+                'tint'  => $c->tint ?: 'bg-gray-100',
+            ])->toArray();
+        }
+        return $this->catCache;
+    }
+
     private function catMeta(string $name): array
     {
-        $map = [
-            'Oli'        => ['cat' => 'oli',     'emoji' => '🛢️', 'tint' => 'bg-blue-50'],
-            'Ban & Velg' => ['cat' => 'ban',     'emoji' => '🛞', 'tint' => 'bg-zinc-100'],
-            'Kampas Rem' => ['cat' => 'rem',     'emoji' => '🛑', 'tint' => 'bg-slate-100'],
-            'Busi'       => ['cat' => 'busi',    'emoji' => '⚡', 'tint' => 'bg-orange-50'],
-            'Filter'     => ['cat' => 'filter',  'emoji' => '🌀', 'tint' => 'bg-emerald-50'],
-            'Lainnya'    => ['cat' => 'lainnya', 'emoji' => '📦', 'tint' => 'bg-gray-100'],
-        ];
+        return $this->catMap()[$name] ?? ['cat' => 'lainnya', 'emoji' => '📦', 'tint' => 'bg-gray-100'];
+    }
 
-        return $map[$name] ?? [
-            'cat'   => 'lainnya',
-            'emoji' => '📦',
-            'tint'  => 'bg-gray-100'
-        ];
+    private function allCategories(): array
+    {
+        return \App\Models\Category::orderBy('name')->get()->map(fn ($c) => [
+            'id'    => $c->id,
+            'code'  => $c->code ?: \Illuminate\Support\Str::slug($c->name),
+            'name'  => $c->name,
+            'emoji' => $c->emoji ?: '📦',
+            'tint'  => $c->tint ?: 'bg-gray-100',
+        ])->all();
+    }
+
+    private function allSuppliers(): array
+    {
+        return \App\Models\Supplier::orderBy('name')->get()->map(fn ($s) => [
+            'id'   => $s->id,
+            'name' => $s->name,
+        ])->all();
     }
 
     // Ambil produk dari DB, ubah ke bentuk array yang dipakai front end
@@ -126,9 +146,10 @@ class KasirController extends Controller
         })->all();
 
         return view('kasir', [
-            'products' => $products,
-            'user'     => session('user'),
-            'invoice'  => 'INV-' . now()->format('Ymd') . '-' . str_pad(
+            'products'   => $products,
+            'categories' => $this->allCategories(),
+            'user'       => session('user'),
+            'invoice'    => 'INV-' . now()->format('Ymd') . '-' . str_pad(
                 (string) rand(100, 999),
                 3,
                 '0',
@@ -142,6 +163,8 @@ class KasirController extends Controller
         if (!session('role')) {
             return redirect('/login');
         }
+
+        $isAdmin = session('role') === 'admin';
 
         $products = $this->productsWithSold();
 
@@ -173,31 +196,35 @@ class KasirController extends Controller
         $top    = $terlaris[0] ?? null;
         $kritis = $menipis[0] ?? null;
 
-        if ($totalTerjual == 0) {
-            $ringkasan = 'Belum ada transaksi penjualan yang tercatat. ';
+        // Ringkasan dibedakan per role
+        if ($isAdmin) {
+            if ($totalTerjual == 0) {
+                $ringkasan = 'Belum ada transaksi penjualan yang tercatat. ';
+            } else {
+                $ringkasan = 'Produk terlaris saat ini adalah ' .
+                    ($top['name'] ?? '-') . ' dengan ' . ($top['sold'] ?? 0) . ' unit terjual. ';
+            }
+
+            if (count($menipis)) {
+                $ringkasan .= 'Ada ' . count($menipis) .
+                    ' produk yang stoknya menipis dan perlu segera di-restock, terutama ' .
+                    $kritis['name'] . ' (sisa ' . $kritis['stock'] . ' unit).';
+            } else {
+                $ringkasan .= 'Semua stok produk masih dalam kondisi aman.';
+            }
         } else {
-            $ringkasan = 'Produk terlaris saat ini adalah ' .
-                ($top['name'] ?? '-') .
-                ' dengan ' .
-                ($top['sold'] ?? 0) .
-                ' unit terjual. ';
+            if ($totalTerjual == 0) {
+                $ringkasan = 'Belum ada data penjualan — tawarkan produk yang tersedia ke setiap pembeli, ya!';
+            } else {
+                $ringkasan = 'Produk yang lagi laris adalah ' . ($top['name'] ?? '-') .
+                    '. Cocok banget ditawarkan ke pembeli hari ini. Klik Generate untuk tips jualan lainnya.';
+            }
         }
 
-        if (count($menipis)) {
-            $ringkasan .= 'Ada ' .
-                count($menipis) .
-                ' produk yang stoknya menipis dan perlu segera di-restock, terutama ' .
-                $kritis['name'] .
-                ' (sisa ' .
-                $kritis['stock'] .
-                ' unit).';
-        } else {
-            $ringkasan .= 'Semua stok produk masih dalam kondisi aman.';
-        }
-
-        // Hasil analisis AI (Gemini) terakhir — diambil dari cache
-        $aiText = \Cache::get('ai_insight_text');
-        $aiTime = \Cache::get('ai_insight_time');
+        // Hasil analisis AI (Gemini) terakhir — cache dipisah per role
+        $role   = session('role');
+        $aiText = \Cache::get('ai_insight_text_' . $role);
+        $aiTime = \Cache::get('ai_insight_time_' . $role);
 
         return view('insight', compact(
             'terlaris',
@@ -214,7 +241,6 @@ class KasirController extends Controller
 
     // ====== AI INSIGHT (Gemini) ======
 
-    // Ringkas data toko untuk dikirim ke AI
     private function insightDataForAI(): array
     {
         $data = $this->productsWithSold()->map(fn ($p) => [
@@ -245,7 +271,6 @@ class KasirController extends Controller
         ];
     }
 
-    // Dipanggil tombol "Generate Analisis" (AJAX)
     public function insightAi(Request $request)
     {
         if (!session('role')) {
@@ -255,13 +280,16 @@ class KasirController extends Controller
             ], 401);
         }
 
+        $role = session('role');
+        $mode = $role === 'admin' ? 'admin' : 'kasir';
+
         $result = app(\App\Services\GeminiService::class)
-            ->generateInsight($this->insightDataForAI());
+            ->generateInsight($this->insightDataForAI(), $mode);
 
         if ($result['ok']) {
             $time = now()->format('d/m/Y H:i');
-            \Cache::put('ai_insight_text', $result['text'], now()->addDay());
-            \Cache::put('ai_insight_time', $time, now()->addDay());
+            \Cache::put('ai_insight_text_' . $role, $result['text'], now()->addDay());
+            \Cache::put('ai_insight_time_' . $role, $time, now()->addDay());
 
             return response()->json([
                 'ok'   => true,
@@ -386,23 +414,26 @@ class KasirController extends Controller
                 );
 
                 return [
-                    'id'     => $p->id,
-                    'name'   => $p->name,
-                    'sku'    => $p->sku,
-                    'price'  => (int) $p->price,
-                    'stock'  => (int) $p->stock,
-                    'cat'    => $meta['cat'],
-                    'emoji'  => $meta['emoji'],
-                    'tint'   => $meta['tint'],
-                    'image'  => $p->image,
-                    'status' => $statusOf((int) $p->stock),
+                    'id'       => $p->id,
+                    'name'     => $p->name,
+                    'sku'      => $p->sku,
+                    'price'    => (int) $p->price,
+                    'stock'    => (int) $p->stock,
+                    'cat'      => $meta['cat'],
+                    'cat_name' => optional($p->category)->name ?? 'Lainnya',
+                    'emoji'    => $meta['emoji'],
+                    'tint'     => $meta['tint'],
+                    'image'    => $p->image,
+                    'status'   => $statusOf((int) $p->stock),
                 ];
             })
             ->all();
 
         return view('produk', [
-            'user' => session('user'),
-            'rows' => $rows,
+            'user'       => session('user'),
+            'rows'       => $rows,
+            'categories' => $this->allCategories(),
+            'suppliers'  => $this->allSuppliers(),
         ]);
     }
 
@@ -523,23 +554,15 @@ class KasirController extends Controller
         }
     }
 
-    // ubah kode kategori (oli/ban/dst) -> id kategori di database
     private function categoryIdByCode(string $code): ?int
     {
-        $names = [
-            'oli'     => 'Oli',
-            'ban'     => 'Ban & Velg',
-            'rem'     => 'Kampas Rem',
-            'busi'    => 'Busi',
-            'filter'  => 'Filter',
-            'lainnya' => 'Lainnya',
-        ];
+        $cat = \App\Models\Category::where('code', $code)->first();
+        if ($cat) return $cat->id;
 
-        $name = $names[$code] ?? 'Lainnya';
-
-        return \App\Models\Category::firstOrCreate([
-            'name' => $name
-        ])->id;
+        return \App\Models\Category::firstOrCreate(
+            ['name' => ucfirst($code)],
+            ['code' => $code, 'emoji' => '📦', 'tint' => 'bg-gray-100']
+        )->id;
     }
 
     public function simpanProduk(Request $request)
@@ -583,6 +606,57 @@ class KasirController extends Controller
         } else {
             Product::create($payload);
         }
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function simpanKategori(Request $request)
+    {
+        if (session('role') !== 'admin') {
+            return response()->json(['message' => 'Tidak diizinkan.'], 403);
+        }
+
+        $data = $request->validate([
+            'name'  => 'required|string|max:50',
+            'emoji' => 'nullable|string|max:16',
+            'tint'  => 'nullable|string|max:30',
+        ]);
+
+        $name = trim($data['name']);
+        $code = \Illuminate\Support\Str::slug($name);
+        if ($code === '') $code = 'kat-' . uniqid();
+
+        if (\App\Models\Category::where('name', $name)->orWhere('code', $code)->exists()) {
+            return response()->json(['message' => 'Kategori sudah ada.'], 422);
+        }
+
+        \App\Models\Category::create([
+            'name'  => $name,
+            'code'  => $code,
+            'emoji' => $data['emoji'] ?: '📦',
+            'tint'  => $data['tint'] ?: 'bg-gray-100',
+        ]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function simpanSupplier(Request $request)
+    {
+        if (session('role') !== 'admin') {
+            return response()->json(['message' => 'Tidak diizinkan.'], 403);
+        }
+
+        $data = $request->validate([
+            'name' => 'required|string|max:100',
+        ]);
+
+        $name = trim($data['name']);
+
+        if (\App\Models\Supplier::where('name', $name)->exists()) {
+            return response()->json(['message' => 'Supplier sudah ada.'], 422);
+        }
+
+        \App\Models\Supplier::create(['name' => $name]);
 
         return response()->json(['ok' => true]);
     }

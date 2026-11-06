@@ -2,17 +2,6 @@
 
 @section('title', 'Kasir · Dewanda Motor')
 
-@php
-$cats = [
-    ['id' => 'semua',  'label' => 'Semua',      'icon' => 'layout-grid'],
-    ['id' => 'oli',    'label' => 'Oli',        'icon' => 'droplet'],
-    ['id' => 'ban',    'label' => 'Ban & Velg', 'icon' => 'circle-dot'],
-    ['id' => 'rem',    'label' => 'Kampas Rem', 'icon' => 'gauge'],
-    ['id' => 'busi',   'label' => 'Busi',       'icon' => 'zap'],
-    ['id' => 'filter', 'label' => 'Filter',     'icon' => 'filter'],
-];
-@endphp
-
 @section('content')
 
 <style>
@@ -49,12 +38,10 @@ $cats = [
 
     <div class="relative flex flex-1 overflow-hidden">
 
-        {{-- Backdrop (mobile) --}}
         <div x-show="sidebarOpen || cartOpen" x-cloak
             x-on:click="sidebarOpen = false; cartOpen = false"
             class="fixed inset-0 z-30 bg-black/40 lg:hidden"></div>
 
-        {{-- Sidebar --}}
         <aside
             class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col justify-between border-r border-gray-200 bg-white p-3 transition-transform duration-300 lg:static lg:z-auto lg:w-52 lg:translate-x-0 lg:transition-none"
             :class="sidebarOpen && 'translate-x-0'">
@@ -69,15 +56,19 @@ $cats = [
                     <a href="/kasir" class="flex w-full items-center gap-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
                         <i data-lucide="shopping-cart" class="h-5 w-5"></i> Kasir
                     </a>
+                    @if (session('role') === 'admin')
                     <a href="/produk" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
                         <i data-lucide="boxes" class="h-5 w-5"></i> Produk & Stok
                     </a>
+                    @endif
                     <a href="/insight" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
                         <i data-lucide="sparkles" class="h-5 w-5"></i> AI Insight
                     </a>
+                    @if (session('role') === 'admin')
                     <a href="/pembukuan" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
                         <i data-lucide="book-open" class="h-5 w-5"></i> Pembukuan
                     </a>
+                    @endif
                 </nav>
             </div>
 
@@ -94,7 +85,6 @@ $cats = [
             </div>
         </aside>
 
-        {{-- Produk --}}
         <main class="relative flex-1 overflow-y-auto">
             <div class="p-4 pb-44 lg:p-6 lg:pb-28">
                 <div class="mb-5 flex items-center gap-2">
@@ -135,19 +125,24 @@ $cats = [
 
             <div class="pointer-events-none sticky bottom-1 flex justify-center px-2 lg:bottom-4">
                 <div class="pointer-events-auto flex max-w-full gap-3 overflow-x-auto rounded-2xl bg-white/90 p-3 shadow-lg ring-1 ring-gray-200 backdrop-blur">
-                    @foreach ($cats as $c)
-                        <button x-on:click="category = '{{ $c['id'] }}'"
+                    <button x-on:click="category = 'semua'"
+                        class="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border text-[11px] font-semibold transition md:h-20 md:w-20 md:gap-1.5 md:text-xs"
+                        :class="category === 'semua' ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'">
+                        <i data-lucide="layout-grid" class="h-5 w-5"></i>
+                        <span class="leading-tight text-center">Semua</span>
+                    </button>
+                    @foreach ($categories as $c)
+                        <button x-on:click="category = '{{ $c['code'] }}'"
                             class="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border text-[11px] font-semibold transition md:h-20 md:w-20 md:gap-1.5 md:text-xs"
-                            :class="category === '{{ $c['id'] }}' ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'">
-                            <i data-lucide="{{ $c['icon'] }}" class="h-5 w-5"></i>
-                            <span class="leading-tight text-center">{{ $c['label'] }}</span>
+                            :class="category === '{{ $c['code'] }}' ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'">
+                            <span class="text-xl leading-none">{{ $c['emoji'] }}</span>
+                            <span class="leading-tight text-center">{{ $c['name'] }}</span>
                         </button>
                     @endforeach
                 </div>
             </div>
         </main>
 
-        {{-- Panel keranjang --}}
         <aside
             class="fixed inset-y-0 right-0 z-40 flex w-full max-w-sm translate-x-full flex-col border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none lg:transition-none"
             :class="cartOpen && 'translate-x-0'">
@@ -200,7 +195,8 @@ $cats = [
                 <div class="space-y-2 text-sm">
                     <div class="flex justify-between text-gray-500"><span>SubTotal</span><span class="font-medium text-gray-700" x-text="rupiah(subtotal)"></span></div>
                     <div class="flex justify-between text-gray-500"><span>Diskon</span><span class="font-medium text-gray-700" x-text="rupiah(diskon)"></span></div>
-                    
+                </div>
+
                 <div class="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
                     <span class="text-sm font-semibold">Total Pembayaran</span>
                     <span class="text-lg font-bold text-red-600" x-text="rupiah(total)"></span>
@@ -250,7 +246,10 @@ $cats = [
         </aside>
     </div>
 
-    {{-- Bar keranjang bawah (HP/tablet kecil) --}}
+    <div x-show="toast" x-cloak
+        class="pointer-events-none fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-lg"
+        x-text="toast"></div>
+
     <div class="flex items-center justify-between gap-3 border-t border-gray-200 bg-white p-3 lg:hidden">
         <div>
             <p class="text-xs text-gray-400">Total</p>
@@ -355,6 +354,52 @@ $cats = [
             invoice: '{{ $invoice }}',
             csrf: '{{ csrf_token() }}',
             tanggal: new Date().toLocaleString('id-ID'),
+
+            toast: '',
+            _scanBuf: '',
+            _scanTime: 0,
+
+            init() {
+                window.addEventListener('keydown', (e) => {
+                    const now = Date.now();
+                    if (now - this._scanTime > 120) this._scanBuf = '';
+                    this._scanTime = now;
+                    if (e.key === 'Enter') {
+                        const code = this._scanBuf.trim();
+                        this._scanBuf = '';
+                        if (code.length >= 3 && this.scanCode(code)) {
+                            e.preventDefault();
+                        }
+                        return;
+                    }
+                    if (e.key.length === 1) this._scanBuf += e.key;
+                });
+            },
+            scanCode(code) {
+                const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const key = norm(code);
+                if (!key) return false;
+                const p = this.products.find(x => norm(x.sku) === key);
+                if (!p) {
+                    this.showToast('✕ Barang tidak ditemukan: ' + code);
+                    this.query = '';
+                    return true;
+                }
+                if (p.stock > 0) {
+                    this.add(p);
+                    this.cartOpen = true;
+                    this.showToast('✓ ' + p.name + ' ditambahkan');
+                } else {
+                    this.showToast('✕ ' + p.name + ' stok habis');
+                }
+                this.query = '';
+                return true;
+            },
+            showToast(msg) {
+                this.toast = msg;
+                clearTimeout(this._toastT);
+                this._toastT = setTimeout(() => this.toast = '', 1800);
+            },
 
             filtered() {
                 const q = this.query.trim().toLowerCase();
